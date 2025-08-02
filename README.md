@@ -1,4 +1,4 @@
-# 🧗‍♂️ Career Ascent
+## Career Ascent
 
 A cutting-edge AI-powered platform that helps job seekers optimize their resumes, understand rejections, and find the most suitable job roles — powered by Nexus AI and built with modern frontend tech.
 
