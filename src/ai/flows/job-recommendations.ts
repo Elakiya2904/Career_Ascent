@@ -1,64 +1,55 @@
 'use server';
 
-/**
- * @fileOverview A job recommendation AI agent.
- *
- * - jobRecommendations - A function that suggests jobs based on a resume.
- * - JobRecommendationsInput - The input type for the jobRecommendations function.
- * - JobRecommendationsOutput - The return type for the jobRecommendations function.
- */
-import {z} from 'zod';
-import {ai} from '@/ai/nexus';
+import { z } from 'zod';
+import { callNexus } from '@/ai/nexus';
 
 const JobRecommendationsInputSchema = z.object({
-  resumeDataUri: z
-    .string()
-    .describe(
-      "The user's resume, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'"
-    ),
+  resumeText: z.string().describe("Plain text extracted from the user's resume"),
 });
 export type JobRecommendationsInput = z.infer<typeof JobRecommendationsInputSchema>;
 
 const JobRecommendationsOutputSchema = z.object({
-  recommendations: z
-    .array(
-      z.object({
-        jobTitle: z.string().describe('The title of the recommended job.'),
-        company: z.string().describe('The company offering the job.'),
-        reasoning: z
-          .string()
-          .describe(
-            'The reasoning behind why this job is a good fit for the user based on their resume.'
-          ),
-      })
-    )
-    .describe('A list of job recommendations with reasoning for each job.'),
+  recommendations: z.array(
+    z.object({
+      jobTitle: z.string(),
+      company: z.string(),
+      reasoning: z.string(),
+    })
+  ),
 });
 export type JobRecommendationsOutput = z.infer<typeof JobRecommendationsOutputSchema>;
 
 export async function jobRecommendations(
   input: JobRecommendationsInput
 ): Promise<JobRecommendationsOutput> {
-  return jobRecommendationsFlow(input);
+  const prompt = `
+You are an expert job market analyst. Based on the resume below, recommend three suitable job titles and companies. For each recommendation, provide a clear reason why the candidate is a good fit.
+
+Resume:
+${input.resumeText}
+
+Respond in the following JSON format:
+{
+  "recommendations": [
+    {
+      "jobTitle": "...",
+      "company": "...",
+      "reasoning": "..."
+    }
+  ]
 }
+`;
 
-const jobRecommendationsPrompt = ai.definePrompt({
-  name: 'jobRecommendationsPrompt',
-  input: {schema: JobRecommendationsInputSchema},
-  output: {schema: JobRecommendationsOutputSchema},
-  model: 'nova-mirco',
-  prompt: `You are an expert job market analyst. Based on the attached resume, recommend three suitable job titles and companies. For each recommendation, provide a clear reason why the candidate is a good fit.
-Resume: {{media url=resumeDataUri}}`,
-});
+  const response = await callNexus(prompt, { model: 'nova-micro' });
 
-const jobRecommendationsFlow = ai.defineFlow(
-  {
-    name: 'jobRecommendationsFlow',
-    inputSchema: JobRecommendationsInputSchema,
-    outputSchema: JobRecommendationsOutputSchema,
-  },
-  async (input) => {
-    const {output} = await jobRecommendationsPrompt(input);
-    return output!;
+  let recommendations: JobRecommendationsOutput;
+  if (typeof response === 'string') {
+    recommendations = JSON.parse(response);
+  } else if (response.choices?.[0]?.message?.content) {
+    recommendations = JSON.parse(response.choices[0].message.content);
+  } else {
+    throw new Error('Unexpected response format from Nexus');
   }
-);
+
+  return JobRecommendationsOutputSchema.parse(recommendations);
+}

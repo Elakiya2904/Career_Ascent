@@ -1,70 +1,54 @@
 'use server';
 
-/**
- * @fileOverview A resume rejection analysis AI agent.
- *
- * - rejectionAnalysis - A function that handles the resume rejection analysis process.
- * - RejectionAnalysisInput - The input type for the rejectionAnalysis function.
- * - RejectionAnalysisOutput - The return type for the rejectionAnalysis function.
- */
-import {z} from 'zod';
-import {ai} from '@/ai/nexus';
+import { z } from 'zod';
+import { callNexus } from '@/ai/nexus';
 
 const RejectionAnalysisInputSchema = z.object({
-  resumeDataUri: z
-    .string()
-    .describe(
-      "The user's resume, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'"
-    ),
-  jobTitle: z
-    .string()
-    .describe('The job title for which the resume was submitted.'),
+  resumeText: z.string(), // changed from resumeDataUri
+  jobTitle: z.string(),
 });
 export type RejectionAnalysisInput = z.infer<typeof RejectionAnalysisInputSchema>;
 
 const RejectionAnalysisOutputSchema = z.object({
-  reasons: z
-    .array(
-      z.object({
-        reason: z
-          .string()
-          .describe('A potential reason for the resume being rejected.'),
-        suggestion: z
-          .string()
-          .describe(
-            'A specific suggestion on how to improve the resume to address the reason.'
-          ),
-      })
-    )
-    .describe(
-      'A list of potential reasons for rejection and suggestions for improvement.'
-    ),
+  reasons: z.array(
+    z.object({
+      reason: z.string(),
+      suggestion: z.string(),
+    })
+  ),
 });
 export type RejectionAnalysisOutput = z.infer<typeof RejectionAnalysisOutputSchema>;
 
 export async function rejectionAnalysis(
   input: RejectionAnalysisInput
 ): Promise<RejectionAnalysisOutput> {
-  return rejectionAnalysisFlow(input);
+  const prompt = `
+You are an expert resume analyst. Analyze the resume text below for the job title "${input.jobTitle}" and identify potential reasons for rejection. For each reason, provide a constructive suggestion for improvement.
+
+Resume:
+${input.resumeText}
+
+Respond in the following JSON format:
+{
+  "reasons": [
+    {
+      "reason": "",
+      "suggestion": ""
+    }
+  ]
 }
+`;
 
-const rejectionAnalysisPrompt = ai.definePrompt({
-  name: 'rejectionAnalysisPrompt',
-  input: {schema: RejectionAnalysisInputSchema},
-  output: {schema: RejectionAnalysisOutputSchema},
-  model: 'nova-mirco',
-  prompt: `You are an expert resume analyst. Analyze the provided resume for the job title "{{jobTitle}}" and identify potential reasons for rejection. For each reason, provide a constructive suggestion for improvement.
-Resume: {{media url=resumeDataUri}}`,
-});
+  const response = await callNexus(prompt, { model: 'nova-micro' });
 
-const rejectionAnalysisFlow = ai.defineFlow(
-  {
-    name: 'rejectionAnalysisFlow',
-    inputSchema: RejectionAnalysisInputSchema,
-    outputSchema: RejectionAnalysisOutputSchema,
-  },
-  async (input) => {
-    const {output} = await rejectionAnalysisPrompt(input);
-    return output!;
+  let analysis: RejectionAnalysisOutput;
+  if (typeof response === 'string') {
+    analysis = JSON.parse(response);
+  } else if (response.choices && response.choices[0]?.message?.content) {
+    analysis = JSON.parse(response.choices[0].message.content);
+  } else {
+    throw new Error('Unexpected response format from Nexus');
   }
-);
+
+  return RejectionAnalysisOutputSchema.parse(analysis);
+}

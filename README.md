@@ -35,7 +35,6 @@ AI-generated potential reasons why your resume may get rejected
 Actionable insights to improve success rate
 
 🧠 AI & Backend Stack
-LLM: Google Gemini, powered by Genkit
 
 API Integration: Nexus API (using Nexus Base URL & API Key for secure, scalable AI tasks)
 

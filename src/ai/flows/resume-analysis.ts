@@ -1,74 +1,92 @@
 'use server';
 
-/**
- * @fileOverview This file defines a flow for analyzing a resume against a job description.
- *
- * - analyzeResume - The function to call to analyze a resume.
- * - AnalyzeResumeInput - The input type for the analyzeResume function.
- * - AnalyzeResumeOutput - The output type for the analyzeResume function.
- */
-import {z} from 'zod';
-import {ai} from '@/ai/nexus';
+import { z } from 'zod';
+import { callNexus } from '@/ai/nexus';
 
+// 1. Zod Schema for input validation
 const AnalyzeResumeInputSchema = z.object({
-  resumeDataUri: z
-    .string()
-    .describe(
-      "The resume as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'"
-    ),
-  jobTitle: z
-    .string()
-    .describe('The job title to compare the resume against.'),
+  resumeText: z.string().min(10, "Resume text is too short"),
+  jobTitle: z.string().min(2, "Job title is required"),
 });
 export type AnalyzeResumeInput = z.infer<typeof AnalyzeResumeInputSchema>;
 
+// 2. Output schema definition
 const AnalyzeResumeOutputSchema = z.object({
-  matchScore: z
-    .number()
-    .describe(
-      'A score indicating how well the resume matches the job title, from 0 to 100.'
-    ),
-  analysis: z
-    .string()
-    .describe('An analysis of the resume in relation to the job title.'),
-  suggestions: z
-    .array(
-      z.object({
-        point: z.string().describe('A point of improvement for the resume.'),
-        suggestion: z
-          .string()
-          .describe(
-            'A specific suggestion on how to improve the resume to address the point.'
-          ),
-      })
-    )
-    .describe('A list of suggestions to improve the resume.'),
+  matchScore: z.number(),
+  analysis: z.string(),
+  suggestions: z.array(
+    z.object({
+      point: z.string(),
+      suggestion: z.string(),
+    })
+  ),
 });
 export type AnalyzeResumeOutput = z.infer<typeof AnalyzeResumeOutputSchema>;
 
+// 3. Function that analyzes resume
 export async function analyzeResume(
-  input: AnalyzeResumeInput
+  rawInput: unknown
 ): Promise<AnalyzeResumeOutput> {
-  return analyzeResumeFlow(input);
-}
+  // Log raw input for debugging
+  console.log('analyzeResume input:', rawInput);
 
-const analyzeResumePrompt = ai.definePrompt({
-  name: 'analyzeResumePrompt',
-  input: {schema: AnalyzeResumeInputSchema},
-  output: {schema: AnalyzeResumeOutputSchema},
-  model: 'nova-mirco',
-  prompt: `You are an expert resume analyst. Analyze the provided resume and determine its match score for the job title: "{{jobTitle}}". Provide a detailed analysis and actionable suggestions for improvement.
-Resume: {{media url=resumeDataUri}}`,
-});
-
-const analyzeResumeFlow = ai.defineFlow(
-  {
-    name: 'analyzeResumeFlow',
-    inputSchema: AnalyzeResumeInputSchema,
-    outputSchema: AnalyzeResumeOutputSchema,
-  },
-  async (input) => {
-    const {output} = await analyzeResumePrompt(input);
-    return output!;
+  // Validate input using Zod
+  const parsed = AnalyzeResumeInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    console.error('❌ Invalid analyzeResume input:', parsed.error.format());
+    throw new Error('Invalid input to analyzeResume');
   }
-);
+
+  const { resumeText, jobTitle } = parsed.data;
+
+  // Optional: limit length to avoid token overflow
+  const trimmedResume = resumeText.trim().slice(0, 8000);
+
+  // Prompt for the LLM
+  const prompt = `
+You are an expert resume analyst.
+
+Analyze the following resume for the job title: "${jobTitle}".
+
+Provide:
+- A match score (0–100)
+- A concise analysis of how well the resume fits the role
+- 2–5 improvement suggestions, each with a specific point and actionable advice
+
+Resume:
+"""${trimmedResume}"""
+
+Respond strictly in this JSON format:
+{
+  "matchScore": 0,
+  "analysis": "",
+  "suggestions": [
+    {
+      "point": "",
+      "suggestion": ""
+    }
+  ]
+}
+`;
+
+  // Call Nexus API
+  const response = await callNexus(prompt, { model: 'nova-micro' });
+
+  // Parse the model's response safely
+  let analysis: AnalyzeResumeOutput;
+  try {
+    if (typeof response === 'string') {
+      analysis = JSON.parse(response);
+    } else if (response.choices && response.choices[0]?.message?.content) {
+      analysis = JSON.parse(response.choices[0].message.content);
+    } else {
+      throw new Error('Unexpected response format from Nexus');
+    }
+  } catch (e) {
+    console.error('❌ Failed to parse Nexus response JSON:', e, 'Response:', response);
+    throw new Error('Invalid JSON response from Nexus');
+  }
+
+  // Final validation against output schema
+  return AnalyzeResumeOutputSchema.parse(analysis);
+}
