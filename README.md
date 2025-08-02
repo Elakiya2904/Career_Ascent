@@ -1,54 +1,57 @@
-Career Ascent
-A cutting-edge AI-powered platform that helps job seekers optimize their resumes, understand rejections, and find the most suitable job roles — powered by Google Gemini and built with modern frontend tech.
+# 🧗‍♂️ Career Ascent
 
-🚀 Features
-🔐 User Authentication
-Secure login/signup flow
+A cutting-edge AI-powered platform that helps job seekers optimize their resumes, understand rejections, and find the most suitable job roles — powered by Nexus AI and built with modern frontend tech.
 
-Session-based access management
+---
 
-📎 File Upload & Smart Preview
-Drag-and-drop file uploader
+## 🚀 Features
 
-Supports PDF and image files
+### 🔐 User Authentication
+- Secure login/signup flow
+- Session-based access management
 
-Smart real-time preview based on file type
+### 📎 File Upload & Smart Preview
+- Drag-and-drop file uploader
+- Supports PDF and image files
+- Smart real-time preview based on file type
 
-📊 Resume Analysis
-AI-generated match score between your resume and a job description
+### 📊 Resume Analysis
+- AI-generated **match score** between your resume and a job description
+- Clear insights into skills, experience gaps, and formatting issues
+- Actionable improvement suggestions
 
-Insights into skills, experience alignment, and formatting
+### 📌 Job Recommendations
+- Tailored job title and company suggestions
+- LLM-generated reasoning for why each job fits you
 
-📌 Job Recommendations
-Tailored job suggestions
+### 📁 Analysis History
+- View past resume analyses
+- Resume uploads persist per user session
 
-LLM-generated explanations of why each job is a good fit
+### ❌ Rejection Analysis
+- AI-predicted reasons your resume may be rejected
+- Improvement tips based on recruiter standards
 
-📁 Analysis History
-View previous resume-job match analyses
+---
 
-Easy revisit and re-upload
+## 🧠 AI & Backend Stack
 
-❌ Rejection Analysis
-AI-generated potential reasons why your resume may get rejected
+| Tech        | Purpose                                   |
+|-------------|-------------------------------------------|
+| **Nexus API** | Connects to LLM models via HTTP API     |
+| **nova-micro** | Lightweight model for fast inference    |
+| **Zod**        | Input/output schema validation         |
+| **TypeScript** | Type-safe backend & AI agent logic     |
 
-Actionable insights to improve success rate
+---
 
-🧠 AI & Backend Stack
+## 🖥️ Frontend Tech Stack
 
-API Integration: Nexus API (using Nexus Base URL & API Key for secure, scalable AI tasks)
+| Tech           | Purpose                            |
+|----------------|------------------------------------|
+| **Next.js 14+**| App Router & Server Actions         |
+| **TypeScript** | Developer tooling + type safety     |
+| **Tailwind CSS**| Fast, utility-first styling        |
+| **ShadCN/UI**  | Accessible and stylish UI elements  |
 
-Use Cases:
-
-Resume-to-job alignment scoring
-
-Fit explanation and job recommendations
-
-Rejection analysis and resume enhancement
-
-🖥️ Frontend Tech Stack
-Tech	Purpose
-Next.js	React framework for SSR & routing
-TypeScript	Type safety and better dev tooling
-Tailwind CSS	Utility-first styling framework
-
+---
